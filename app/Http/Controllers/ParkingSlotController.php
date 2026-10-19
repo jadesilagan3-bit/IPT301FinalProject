@@ -4,66 +4,72 @@ namespace App\Http\Controllers;
 
 use App\Models\ParkingSlot;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class ParkingSlotController extends Controller
 {
     public function index()
     {
-        $parkingSlots = ParkingSlot::all();
-        return view('parking-slots.index', compact('parkingSlots'));
+        $slots = ParkingSlot::latest()->get();
+
+        return view('parking_slots.index', compact('slots'));
     }
 
     public function create()
     {
-        return view('parking-slots.create');
+        return view('parking_slots.create');
     }
 
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'slot_number' => 'required|string|max:255|unique:parking_slots,slot_number',
-            'slot_type' => 'required|string|max:255',
+        $validated = $request->validate([
+            'slot_number' => 'required|string|max:50|unique:parking_slots,slot_number',
+            'slot_type' => 'required|string|max:50',
             'status' => 'required|in:Available,Occupied,Maintenance',
             'location' => 'nullable|string|max:255',
         ]);
 
-        ParkingSlot::create($data);
+        ParkingSlot::create($validated);
 
         return redirect()->route('parking-slots.index')
-            ->with('success', 'Parking slot added successfully.');
+            ->with('success', 'Parking slot added successfully!');
     }
 
     public function edit(ParkingSlot $parking_slot)
     {
-        return view('parking-slots.edit', [
-            'parkingSlot' => $parking_slot
-        ]);
+        return view('parking_slots.edit', ['slot' => $parking_slot]);
     }
 
     public function update(Request $request, ParkingSlot $parking_slot)
     {
-        $data = $request->validate([
-            'slot_number' => 'required|string|max:255|unique:parking_slots,slot_number,' . $parking_slot->id,
-            'slot_type' => 'required|string|max:255',
+        $validated = $request->validate([
+            'slot_number' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('parking_slots', 'slot_number')->ignore($parking_slot->id),
+            ],
+            'slot_type' => 'required|string|max:50',
             'status' => 'required|in:Available,Occupied,Maintenance',
             'location' => 'nullable|string|max:255',
         ]);
 
-        $parking_slot->update($data);
+        $parking_slot->update($validated);
 
         return redirect()->route('parking-slots.index')
-            ->with('success', 'Parking slot updated successfully.');
+            ->with('success', 'Parking slot updated successfully!');
     }
 
     public function destroy(ParkingSlot $parking_slot)
     {
         if ($parking_slot->parkingSessions()->exists()) {
-            return back()->with('error', 'Cannot delete a slot with parking session records.');
+            return redirect()->route('parking-slots.index')
+                ->with('error', 'Cannot delete a slot that has parking sessions.');
         }
 
         $parking_slot->delete();
 
         return redirect()->route('parking-slots.index')
-            ->with('success', 'Parking slot deleted successfully.');
+            ->with('success', 'Parking slot deleted successfully!');
     }
 }
